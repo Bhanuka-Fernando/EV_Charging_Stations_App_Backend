@@ -81,6 +81,7 @@ namespace EV_ChargingStationBooking_system_EAD.Api.Controllers
                 FullName = created.FullName,
                 Phone = created.Phone,
                 CreatedAtUtc = created.CreatedAtUtc,
+                IsActive     = created.IsActive,
                 StationIds = created.StationIds?.ToList() ?? new List<string>()
             };
             return Ok(view);

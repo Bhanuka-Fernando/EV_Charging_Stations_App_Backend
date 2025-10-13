@@ -34,5 +34,6 @@ namespace EV_ChargingStationBooking_system_EAD.Api.Dtos
         public DateTime CreatedAtUtc { get; set; }
 
         public List<string> StationIds { get; set; } = new();
+        public bool IsActive { get; set; } = true;
     }
 }

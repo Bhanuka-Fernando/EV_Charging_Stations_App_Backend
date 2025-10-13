@@ -70,13 +70,14 @@ namespace EV_ChargingStationBooking_system_EAD.Api.Services
 
         private static StaffUserViewDto Map(AuthUser u) => new()
         {
-            Id           = u.Id,
-            Email        = u.Username,
-            Role         = u.Role,
-            FullName     = u.FullName,
-            Phone        = u.Phone,
+            Id = u.Id,
+            Email = u.Username,
+            Role = u.Role,
+            FullName = u.FullName,
+            Phone = u.Phone,
             CreatedAtUtc = u.CreatedAtUtc,
-            StationIds   = u.StationIds?.ToList() ?? new List<string>()
+            IsActive     = u.IsActive,   
+            StationIds = u.StationIds?.ToList() ?? new List<string>()
         };
     }
 }
