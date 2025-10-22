@@ -25,7 +25,11 @@ builder.Services.AddSwaggerGen(c =>
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
         Description = "Type **Bearer {token}**",
-        Reference = new OpenApiReference { Id = JwtBearerDefaults.AuthenticationScheme, Type = ReferenceType.SecurityScheme }
+        Reference = new OpenApiReference
+        {
+            Id = JwtBearerDefaults.AuthenticationScheme,
+            Type = ReferenceType.SecurityScheme
+        }
     };
     c.AddSecurityDefinition(jwtScheme.Reference.Id, jwtScheme);
     c.AddSecurityRequirement(new OpenApiSecurityRequirement { { jwtScheme, Array.Empty<string>() } });
@@ -38,7 +42,6 @@ builder.Services.Configure<MongoOptions>(builder.Configuration.GetSection("Mongo
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<QrOptions>(builder.Configuration.GetSection("Qr"));
 
-
 // ---------------- Mongo & DI ----------------
 builder.Services.AddSingleton<MongoContext>();
 builder.Services.AddScoped<IAuthUserRepository, AuthUserRepository>();
@@ -47,19 +50,26 @@ builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IMyProfileService, MyProfileService>();
 builder.Services.AddScoped<IEvOwnerRepository, EvOwnerRepository>();
 builder.Services.AddScoped<IEvOwnerService, EvOwnerService>();
-builder.Services.AddScoped<IBookingRepository, BookingRepository>(); 
 builder.Services.AddScoped<IChargingStationRepository, ChargingStationRepository>();
 builder.Services.AddScoped<IChargingStationService, ChargingStationService>();
-builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+builder.Services.AddScoped<IBookingRepository, BookingRepository>(); // <-- keep only once
 builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddSingleton<IQrService, QrService>();
 builder.Services.AddScoped<IAdminStaffService, AdminStaffService>();
 
-// For dev you can AllowAnyOrigin; for stricter:
+// ---------------- CORS (Dev) ----------------
+// List explicit dev origins; add LAN URL if needed.
 builder.Services.AddCors(o => o.AddPolicy("dev", p =>
-    p.WithOrigins("http://localhost:5173") // Vite default port
-     .AllowAnyHeader()
-     .AllowAnyMethod()
+    p.WithOrigins(
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+        // "http://192.168.8.124:5050" // <- uncomment if you test via LAN/site
+    )
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    // .AllowCredentials() // only if you use cookies; NOT needed for JWT Authorization header
 ));
 
 // ---------------- Auth / JWT ----------------
@@ -78,7 +88,7 @@ builder.Services
             ValidateIssuer = true,
             ValidIssuer = jwt.Issuer,
 
-            ValidateAudience = false, // <- important (was true before)
+            ValidateAudience = false, // common for SPAs using JWT
 
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = key,
@@ -86,17 +96,18 @@ builder.Services
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(1),
 
-            RoleClaimType = ClaimTypes.Role,                      
-            NameClaimType = JwtRegisteredClaimNames.UniqueName     
+            RoleClaimType = ClaimTypes.Role,
+            // If your token uses "name" (or "sub") instead of "unique_name", prefer ClaimTypes.Name.
+            // NameClaimType = ClaimTypes.Name
+            NameClaimType = JwtRegisteredClaimNames.UniqueName
         };
-
     });
 
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Seed an initial Backoffice account
+// ---------------- Seed indexes & initial data ----------------
 using (var scope = app.Services.CreateScope())
 {
     var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
@@ -112,16 +123,11 @@ using (var scope = app.Services.CreateScope())
     await bookingRepo.CreateIndexesAsync();
 }
 
-
+// ---------------- Swagger ----------------
 app.UseSwagger();
 app.UseSwaggerUI();
 
-if (app.Environment.IsDevelopment())
-{
-
-}
-
-
+// HTTPS redirection in Production only (Dev often uses localhost HTTPS already)
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
@@ -129,7 +135,7 @@ if (!app.Environment.IsDevelopment())
 
 // ---------- Middleware ORDER matters ----------
 app.UseCors("dev");
-app.UseAuthentication();   // <-- MUST be before UseAuthorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapGet("/", () => Results.Redirect("/swagger", false));
